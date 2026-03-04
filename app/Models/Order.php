@@ -20,7 +20,7 @@ class Order extends Model
         'warehouse_name',
         'oblast',
         'income_id',
-        'odid',
+        'odid',        // Это уникальный идентификатор
         'nm_id',
         'subject',
         'category',

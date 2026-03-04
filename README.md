@@ -1,64 +1,207 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# Парсер данных WB API
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Консольное приложение на Laravel для импорта данных из тестового API Wildberries (продажи, заказы, остатки складов, доходы). Проект выполнен в рамках тестового задания.
 
-## About Laravel
+## 📦 Стек технологий
+- PHP 8.1
+- Laravel 10
+- MySQL 8.0 (на VPS)
+- Composer
+- Docker (опционально, для запуска MySQL)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🚀 Установка и настройка
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### 1. Клонирование репозитория
+```bash
+git clone https://github.com/your-username/wb-api-parser.git
+cd wb-api-parser
+```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 2. Установка зависимостей
+```bash
+composer install
+```
 
-## Learning Laravel
+### 3. Настройка окружения
+Скопируйте файл `.env.example` в `.env` и отредактируйте параметры подключения к базе данных:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 4. Настройка подключения к БД (VPS)
+Откройте `.env` и укажите параметры вашей удалённой базы данных (пример для MySQL на VPS):
 
-## Laravel Sponsors
+```env
+DB_CONNECTION=mysql
+DB_HOST=your_vps_ip          # IP-адрес вашего VPS
+DB_PORT=3306
+DB_DATABASE=wb_api_import
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+> **Примечание:** Убедитесь, что на VPS разрешены удалённые подключения к MySQL (порт 3306 открыт и пользователь имеет права доступа с вашего IP).
 
-### Premium Partners
+### 5. Запуск миграций
+```bash
+php artisan migrate
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+## 📥 Импорт данных
+Запустите консольную команду для стягивания всех данных из API:
 
-## Contributing
+```bash
+php artisan import:data
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+По умолчанию команда загружает данные за период **2026-03-01 – 2026-03-05**. При необходимости можно указать свой диапазон:
 
-## Code of Conduct
+```bash
+php artisan import:data --dateFrom=2026-03-01 --dateTo=2026-03-04
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+**Особенности работы команды:**
+- Для эндпоинта `/api/stocks` API принимает только дату не ранее «вчера», поэтому импорт складов выполняется только за сегодняшний день (в коде автоматически подставляется текущая дата).
+- Уникальность записей обеспечена через `updateOrCreate` с использованием естественных ключей:
+  - `sales` — `sale_id`
+  - `orders` — `g_number` (в API `odid` может быть неуникальным)
+  - `stocks` — составной ключ `nm_id + warehouse_name + date`
+  - `incomes` — составной ключ `income_id + nm_id`
 
-## Security Vulnerabilities
+## 📊 Структура базы данных и наполнение
+После успешного импорта в базе данных будут созданы следующие таблицы:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Таблица  | Сущность       | Количество записей (на 04.03.2026) |
+|----------|----------------|-------------------------------------|
+| `sales`  | Продажи        | 1201                                |
+| `orders` | Заказы         | 1193                                |
+| `stocks` | Остатки складов| 3128                                |
+| `incomes`| Доходы         | 64                                  |
 
-## License
+*Небольшие расхождения с ожидаемыми значениями связаны с динамическим характером данных в API.*
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Описание таблиц
+
+#### `sales`
+- `id` — первичный ключ
+- `sale_id` — уникальный идентификатор продажи (индекс)
+- `g_number` — номер заказа
+- `date` — дата продажи
+- `last_change_date` — дата последнего изменения
+- `supplier_article` — артикул поставщика
+- `tech_size` — размер
+- `barcode` — штрихкод
+- `total_price` — общая цена
+- `discount_percent` — процент скидки
+- `is_supply` — флаг поставки
+- `is_realization` — флаг реализации
+- `warehouse_name` — название склада
+- `country_name` — страна
+- `oblast_okrug_name` — округ
+- `region_name` — регион
+- `income_id` — идентификатор дохода
+- `nm_id` — артикул Wildberries
+- `subject` — предмет
+- `category` — категория
+- `brand` — бренд
+- и др.
+
+#### `orders`
+- `id` — первичный ключ
+- `g_number` — номер заказа (уникальный ключ)
+- `odid` — идентификатор заказа (неуникальный, только индекс)
+- `date` — дата заказа
+- `last_change_date` — дата последнего изменения
+- `supplier_article` — артикул поставщика
+- `tech_size` — размер
+- `barcode` — штрихкод
+- `total_price` — общая цена
+- `discount_percent` — процент скидки
+- `warehouse_name` — название склада
+- `oblast` — область
+- `income_id` — идентификатор дохода
+- `nm_id` — артикул Wildberries
+- `subject` — предмет
+- `category` — категория
+- `brand` — бренд
+- `is_cancel` — отменён ли заказ
+- `cancel_dt` — дата отмены
+
+#### `stocks`
+- `id` — первичный ключ
+- Составной уникальный ключ: `nm_id + warehouse_name + date`
+- `date` — дата отчёта
+- `last_change_date` — дата последнего изменения
+- `supplier_article` — артикул поставщика
+- `tech_size` — размер
+- `barcode` — штрихкод
+- `quantity` — количество
+- `is_supply` — флаг поставки
+- `is_realization` — флаг реализации
+- `quantity_full` — полное количество
+- `warehouse_name` — название склада
+- `in_way_to_client` — в пути к клиенту
+- `in_way_from_client` — в пути от клиента
+- `nm_id` — артикул Wildberries
+- `subject` — предмет
+- `category` — категория
+- `brand` — бренд
+- `sc_code` — складской код
+- `price` — цена
+- `discount` — скидка
+
+#### `incomes`
+- `id` — первичный ключ
+- Составной уникальный ключ: `income_id + nm_id`
+- `income_id` — идентификатор дохода
+- `number` — номер
+- `date` — дата поступления
+- `last_change_date` — дата последнего изменения
+- `supplier_article` — артикул поставщика
+- `tech_size` — размер
+- `barcode` — штрихкод
+- `quantity` — количество
+- `total_price` — общая цена
+- `date_close` — дата закрытия
+- `warehouse_name` — название склада
+- `nm_id` — артикул Wildberries
+
+## 🔑 Доступ к базе данных (для проверки)
+
+- **Хост:** `144.31.81.142`
+- **Порт:** 3306
+- **Имя базы данных:** `wb_api_import`
+- **Пользователь:** `wb_user`
+- **Пароль:** `ваш_пароль`
+
+**Для подключения через MySQL клиент:**
+```bash
+mysql -h 144.31.81.142 -P 3306 -u wb_user -p wb_api_import
+```
+
+## 📝 Команды artisan
+
+```bash
+# Запуск импорта (период по умолчанию)
+php artisan import:data
+
+# Импорт с указанием периода
+php artisan import:data --dateFrom=2026-03-01 --dateTo=2026-03-04
+
+# Очистка таблиц (при необходимости)
+php artisan db:wipe
+php artisan migrate:fresh
+```
+
+## ⚠️ Примечания
+- Для корректной работы импорта убедитесь, что на VPS открыт порт 3306 для вашего IP.
+- API stocks принимает только дату не ранее вчерашнего дня – это учтено в коде.
+- Если при повторном запуске данные не обновляются, используйте `DELETE FROM table` перед импортом (в коде предусмотрена очистка).
+- В таблице `orders` уникальность обеспечивается по полю `g_number`, так как `odid` в ответах API часто равен `"0"`.
+
+## 📞 Контакты
+По вопросам: [Telegram: @normissimus]
+
+---

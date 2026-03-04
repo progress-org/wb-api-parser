@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('warehouse_name'); // Название склада
             $table->string('oblast'); // Область/регион
             $table->bigInteger('income_id'); // ID дохода
-            $table->string('odid'); // ODID (уникальный идентификатор заказа)
+            $table->string('odid')->unique(); // ODID (уникальный идентификатор заказа)
             $table->bigInteger('nm_id'); // Артикул Wildberries
             $table->string('subject'); // Предмет
             $table->string('category'); // Категория
